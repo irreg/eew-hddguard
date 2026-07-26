@@ -33,6 +33,9 @@ type Config struct {
 	AllowTest bool `json:"allowTest"`
 	// DryRun logs disk actions instead of performing them.
 	DryRun bool `json:"dryRun"`
+	// LogFile additionally appends logs to this file (useful when running
+	// without a console, e.g. as a tray app).
+	LogFile string `json:"logFile"`
 }
 
 // Default returns the built-in defaults: dismount mode, 180 s hold, all

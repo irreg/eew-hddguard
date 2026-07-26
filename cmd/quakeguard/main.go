@@ -1,6 +1,8 @@
 // Command quakeguard receives 緊急地震速報 (EEW) warnings and parks the
 // heads of local hard disks — optionally dismounting their volumes so I/O
-// cannot wake them — until the shaking has passed.
+// cannot wake them — until the shaking has passed. On Windows it lives in
+// the system tray with manual test / early-release actions and toast
+// notifications.
 package main
 
 import (
@@ -19,6 +21,7 @@ import (
 	"quakeguard/internal/config"
 	"quakeguard/internal/eew"
 	"quakeguard/internal/protect"
+	"quakeguard/internal/ui"
 	"quakeguard/internal/windisk"
 )
 
@@ -28,8 +31,11 @@ var (
 	newSource     = func(cfg *config.Config, logf protect.Logf) eew.Source {
 		return &eew.P2PQuakeSource{URL: cfg.SourceURL, Logf: logf}
 	}
+	runUI = ui.RunLoop
 	// simulateHold caps the protection hold used by -simulate.
 	simulateHold = 2 * time.Second
+	// manualTestHold is the protection hold for the tray "テスト実行" action.
+	manualTestHold = 10 * time.Second
 )
 
 func main() {
@@ -43,6 +49,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	listDisks := flags.Bool("list-disks", false, "list detected disks and exit")
 	simulate := flags.Bool("simulate", false, "run one protect/release cycle and exit")
 	dryRun := flags.Bool("dry-run", false, "log disk actions instead of performing them")
+	noTray := flags.Bool("no-tray", false, "run headless without the system tray")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -59,6 +66,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if *dryRun {
 		cfg.DryRun = true
+	}
+	if cfg.LogFile != "" {
+		f, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			logf("cannot open log file: %v", err)
+			return 1
+		}
+		defer f.Close()
+		logger.SetOutput(io.MultiWriter(stderr, f))
 	}
 	mode, _ := protect.ParseMode(cfg.Mode)
 
@@ -107,10 +123,30 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	opts := ui.Options{Tray: !*noTray, Tooltip: "quakeguard — 緊急地震速報でHDDヘッドを退避"}
+	return runUI(opts, ui.Logf(logf), func(u ui.UI) int {
+		guard.SetOnChange(func(active bool, reason string) {
+			u.SetProtected(active, reason)
+			if active {
+				u.Notify("quakeguard: HDD保護を発動しました",
+					reason+" — ヘッドを退避しています。揺れが収まったらメニューの「今すぐ解除」で早期復旧できます。")
+			} else {
+				u.Notify("quakeguard: HDD保護を解除しました", reason)
+			}
+		})
+		defer guard.Close()
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		logf("quakeguard: watching EEW (mode=%s, hold=%s, disks=%v, prefs=%v, dryRun=%v)",
+			mode, hold, nums, cfg.WatchPrefs, cfg.DryRun)
+		return monitor(ctx, cfg, guard, newSource(cfg, logf), u, logf)
+	})
+}
 
-	src := newSource(cfg, logf)
+// monitor is the main event loop: EEW events trigger the guard, UI actions
+// drive manual tests and early release, and a source failure or context
+// cancellation ends it.
+func monitor(ctx context.Context, cfg *config.Config, guard *protect.Guard, src eew.Source, u ui.UI, logf protect.Logf) int {
 	events := make(chan eew.Event, 16)
 	errc := make(chan error, 1)
 	go func() {
@@ -118,13 +154,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 		close(events)
 	}()
 
-	logf("quakeguard: watching EEW (mode=%s, hold=%s, disks=%v, prefs=%v, dryRun=%v)",
-		mode, hold, nums, cfg.WatchPrefs, cfg.DryRun)
-
 	for {
 		select {
 		case ev := <-events:
 			handleEvent(ev, cfg, guard, logf)
+		case act := <-u.Actions():
+			switch act {
+			case ui.ActionTest:
+				logf("ui: manual test requested (%s hold)", manualTestHold)
+				guard.TriggerFor("手動テスト", manualTestHold)
+			case ui.ActionRelease:
+				logf("ui: early release requested")
+				guard.ReleaseNow("手動解除")
+			case ui.ActionQuit:
+				logf("ui: quit requested")
+				return 0
+			}
 		case err := <-errc:
 			// Drain events emitted before the source stopped.
 			for ev := range events {

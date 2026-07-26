@@ -7,7 +7,7 @@ import (
 
 // Guard debounces EEW triggers into protect/release cycles: the first
 // trigger protects the disks, further triggers while protected extend the
-// hold, and the hold timer releases them.
+// hold, and the hold timer — or a manual release — restores them.
 type Guard struct {
 	ctrl  Controller
 	disks []DiskInfo
@@ -15,9 +15,10 @@ type Guard struct {
 	hold  time.Duration
 	logf  Logf
 
-	mu      sync.Mutex
-	session Session
-	timer   *time.Timer
+	mu       sync.Mutex
+	session  Session
+	timer    *time.Timer
+	onChange func(active bool, reason string)
 }
 
 // NewGuard builds a Guard. hold is how long protection lasts after the most
@@ -29,31 +30,57 @@ func NewGuard(ctrl Controller, disks []DiskInfo, mode Mode, hold time.Duration, 
 	return &Guard{ctrl: ctrl, disks: disks, mode: mode, hold: hold, logf: logf}
 }
 
-// Trigger protects the disks, or extends the hold if already protected.
-func (g *Guard) Trigger(reason string) error {
+// SetOnChange registers a callback invoked (outside the guard's lock) after
+// every protect/release transition. The callback may call back into the
+// Guard from another goroutine, but must not block.
+func (g *Guard) SetOnChange(fn func(active bool, reason string)) {
 	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.onChange = fn
+	g.mu.Unlock()
+}
+
+// Trigger protects the disks with the configured hold, or extends the hold
+// if already protected.
+func (g *Guard) Trigger(reason string) error {
+	return g.TriggerFor(reason, g.hold)
+}
+
+// TriggerFor is Trigger with an explicit hold duration (used for manual
+// test runs with a short hold).
+func (g *Guard) TriggerFor(reason string, hold time.Duration) error {
+	g.mu.Lock()
 	if g.session != nil {
-		g.timer.Reset(g.hold)
-		g.logf("guard: already protected; hold extended by %s (%s)", g.hold, reason)
+		g.timer.Reset(hold)
+		g.mu.Unlock()
+		g.logf("guard: already protected; hold extended by %s (%s)", hold, reason)
 		return nil
 	}
 	g.logf("guard: PROTECTING %d disk(s), mode=%s (%s)", len(g.disks), g.mode, reason)
 	sess, err := g.ctrl.Protect(g.disks, g.mode)
 	if err != nil {
+		g.mu.Unlock()
 		g.logf("guard: protect failed: %v", err)
 		return err
 	}
 	g.session = sess
-	g.timer = time.AfterFunc(g.hold, g.expire)
-	g.logf("guard: protected; will release in %s", g.hold)
+	g.timer = time.AfterFunc(hold, g.expire)
+	fn := g.onChange
+	g.mu.Unlock()
+	g.logf("guard: protected; will release in %s", hold)
+	if fn != nil {
+		fn(true, reason)
+	}
 	return nil
 }
 
 func (g *Guard) expire() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.releaseLocked("hold expired")
+	g.releaseWith("保持時間が経過")
+}
+
+// ReleaseNow releases protection early (user-initiated recovery once the
+// shaking has stopped). No-op when not protected.
+func (g *Guard) ReleaseNow(reason string) error {
+	return g.releaseWith(reason)
 }
 
 // Active reports whether disks are currently protected.
@@ -65,25 +92,30 @@ func (g *Guard) Active() bool {
 
 // Close releases protection if it is active. Safe to call multiple times.
 func (g *Guard) Close() error {
+	return g.releaseWith("シャットダウン")
+}
+
+func (g *Guard) releaseWith(reason string) error {
 	g.mu.Lock()
-	defer g.mu.Unlock()
 	if g.timer != nil {
 		g.timer.Stop()
 		g.timer = nil
 	}
-	return g.releaseLocked("shutdown")
-}
-
-func (g *Guard) releaseLocked(reason string) error {
 	if g.session == nil {
+		g.mu.Unlock()
 		return nil
 	}
 	err := g.session.Release()
 	g.session = nil
+	fn := g.onChange
+	g.mu.Unlock()
 	if err != nil {
 		g.logf("guard: release failed (%s): %v", reason, err)
-		return err
+	} else {
+		g.logf("guard: released (%s)", reason)
 	}
-	g.logf("guard: released (%s)", reason)
-	return nil
+	if fn != nil {
+		fn(false, reason)
+	}
+	return err
 }

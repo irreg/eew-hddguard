@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"quakeguard/internal/config"
 	"quakeguard/internal/eew"
 	"quakeguard/internal/protect"
+	"quakeguard/internal/ui"
 )
 
 type testSession struct {
@@ -222,6 +224,108 @@ func TestRunSourceFailure(t *testing.T) {
 	withFakes(t, ctrl, src)
 	var out, errBuf bytes.Buffer
 	path := writeConfig(t, `{}`)
+	if code := run([]string{"-config", path}, &out, &errBuf); code != 1 {
+		t.Errorf("code = %d, want 1", code)
+	}
+}
+
+// fakeUI records notifications and state changes and feeds scripted actions
+// to the monitor loop.
+type fakeUI struct {
+	actions chan ui.Action
+	mu      sync.Mutex
+	notices []string
+	states  []bool
+}
+
+func (u *fakeUI) Actions() <-chan ui.Action { return u.actions }
+
+func (u *fakeUI) SetProtected(active bool, detail string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.states = append(u.states, active)
+}
+
+func (u *fakeUI) Notify(title, message string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.notices = append(u.notices, title+" "+message)
+}
+
+// blockingSource emits nothing and runs until cancelled, keeping the
+// monitor loop alive for UI-action tests.
+type blockingSource struct{}
+
+func (blockingSource) Run(ctx context.Context, out chan<- eew.Event) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func TestRunUIManualTestAndEarlyRelease(t *testing.T) {
+	ctrl := &testController{disks: defaultDisks()}
+	withFakes(t, ctrl, blockingSource{})
+
+	fake := &fakeUI{actions: make(chan ui.Action, 8)}
+	fake.actions <- ui.ActionTest
+	fake.actions <- ui.ActionRelease
+	fake.actions <- ui.ActionQuit
+
+	origUI, origHold := runUI, manualTestHold
+	runUI = func(opts ui.Options, logf ui.Logf, body func(ui.UI) int) int { return body(fake) }
+	manualTestHold = time.Hour // must not expire before the manual release
+	t.Cleanup(func() { runUI, manualTestHold = origUI, origHold })
+
+	var out, errBuf bytes.Buffer
+	path := writeConfig(t, `{}`)
+	if code := run([]string{"-config", path}, &out, &errBuf); code != 0 {
+		t.Fatalf("code = %d, want 0; stderr:\n%s", code, errBuf.String())
+	}
+	if ctrl.protects != 1 {
+		t.Errorf("protect called %d times, want 1", ctrl.protects)
+	}
+	ctrl.session.mu.Lock()
+	released := ctrl.session.released
+	ctrl.session.mu.Unlock()
+	if released != 1 {
+		t.Errorf("released %d times, want 1", released)
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.states) != 2 || !fake.states[0] || fake.states[1] {
+		t.Errorf("states = %v, want [true false]", fake.states)
+	}
+	notices := strings.Join(fake.notices, "\n")
+	for _, want := range []string{"発動", "今すぐ解除", "解除しました", "手動解除"} {
+		if !strings.Contains(notices, want) {
+			t.Errorf("notifications missing %q:\n%s", want, notices)
+		}
+	}
+}
+
+func TestRunLogFile(t *testing.T) {
+	ctrl := &testController{disks: defaultDisks()}
+	withFakes(t, ctrl, &testSource{})
+	logPath := filepath.Join(t.TempDir(), "quakeguard.log")
+	var out, errBuf bytes.Buffer
+	path := writeConfig(t, `{"logFile": `+strconv.Quote(logPath)+`}`)
+	if code := run([]string{"-config", path}, &out, &errBuf); code != 0 {
+		t.Fatalf("code = %d, want 0; stderr:\n%s", code, errBuf.String())
+	}
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "shutting down") {
+		t.Errorf("log file missing content:\n%s", data)
+	}
+}
+
+func TestRunLogFileOpenError(t *testing.T) {
+	ctrl := &testController{disks: defaultDisks()}
+	withFakes(t, ctrl, nil)
+	var out, errBuf bytes.Buffer
+	// A directory path cannot be opened as a file.
+	path := writeConfig(t, `{"logFile": `+strconv.Quote(t.TempDir())+`}`)
 	if code := run([]string{"-config", path}, &out, &errBuf); code != 1 {
 		t.Errorf("code = %d, want 1", code)
 	}

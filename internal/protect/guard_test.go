@@ -144,6 +144,96 @@ func TestGuardProtectError(t *testing.T) {
 	}
 }
 
+func TestGuardTriggerForUsesCustomHold(t *testing.T) {
+	ctrl := &fakeController{}
+	// Long default hold, short explicit hold.
+	g := NewGuard(ctrl, nil, ModeStandby, time.Hour, t.Logf)
+	if err := g.TriggerFor("manual test", 30*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { return !g.Active() }, "custom hold never expired")
+}
+
+func TestGuardReleaseNow(t *testing.T) {
+	ctrl := &fakeController{}
+	g := NewGuard(ctrl, nil, ModeDismount, time.Hour, t.Logf)
+	if err := g.ReleaseNow("noop"); err != nil {
+		t.Errorf("ReleaseNow when idle: %v", err)
+	}
+	if err := g.Trigger("test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.ReleaseNow("shaking stopped"); err != nil {
+		t.Fatal(err)
+	}
+	if g.Active() {
+		t.Error("still active after ReleaseNow")
+	}
+	ctrl.session.mu.Lock()
+	defer ctrl.session.mu.Unlock()
+	if ctrl.session.released != 1 {
+		t.Errorf("released %d times, want 1", ctrl.session.released)
+	}
+}
+
+func TestGuardOnChangeCallbacks(t *testing.T) {
+	ctrl := &fakeController{}
+	g := NewGuard(ctrl, nil, ModeStandby, time.Hour, t.Logf)
+	type change struct {
+		active bool
+		reason string
+	}
+	var mu sync.Mutex
+	var changes []change
+	g.SetOnChange(func(active bool, reason string) {
+		mu.Lock()
+		defer mu.Unlock()
+		changes = append(changes, change{active, reason})
+	})
+	if err := g.Trigger("eew"); err != nil {
+		t.Fatal(err)
+	}
+	// An extension must not fire the callback again.
+	if err := g.Trigger("extend"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.ReleaseNow("manual"); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	want := []change{{true, "eew"}, {false, "manual"}}
+	if len(changes) != len(want) {
+		t.Fatalf("changes = %v, want %v", changes, want)
+	}
+	for i := range want {
+		if changes[i] != want[i] {
+			t.Errorf("changes[%d] = %v, want %v", i, changes[i], want[i])
+		}
+	}
+}
+
+func TestGuardOnChangeCanCallBackIntoGuard(t *testing.T) {
+	// The callback runs outside the guard's lock; calling guard methods
+	// from it must not deadlock.
+	ctrl := &fakeController{}
+	g := NewGuard(ctrl, nil, ModeStandby, time.Hour, t.Logf)
+	g.SetOnChange(func(active bool, reason string) {
+		g.Active()
+	})
+	done := make(chan struct{})
+	go func() {
+		g.Trigger("eew")
+		g.ReleaseNow("manual")
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("deadlock: OnChange callback blocked the guard")
+	}
+}
+
 func TestGuardReleaseErrorPropagates(t *testing.T) {
 	wantErr := errors.New("unlock failed")
 	ctrl := &fakeController{session: &fakeSession{err: wantErr}}

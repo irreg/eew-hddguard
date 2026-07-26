@@ -4,6 +4,12 @@
 
 P2P地震情報のWebSocket APIから**緊急地震速報(警報)**(予想震度5弱以上)を受信し、対象のHDDに ATA `STANDBY IMMEDIATE` を発行してヘッドをランプに退避させます。オプションで、保護中にOSのI/Oがディスクを起こしてしまわないよう、ボリュームのロック+ディスマウントまで行えます。
 
+Windowsではタスクトレイに常駐し、以下を提供します:
+
+- **トースト通知** — 保護の発動・解除時に通知(発動時はディスマウント中である旨と復旧方法を案内)
+- **テスト実行** — トレイメニューから実際に保護を10秒間発動して、ヘッド退避が動くか確認
+- **今すぐ解除** — 揺れが収まったらユーザ操作で保持時間を待たずに早期復旧(アイコンも待機/保護中で色が変わります)
+
 ## 仕組み
 
 ```
@@ -36,8 +42,10 @@ P2P地震情報 (wss://api.p2pquake.net/v2/ws)
 WSL/Linuxからのクロスコンパイル:
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -o quakeguard.exe ./cmd/quakeguard
+GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o quakeguard.exe ./cmd/quakeguard
 ```
+
+`-H=windowsgui` はトレイ常駐時にコンソール窓を出さないためのフラグです。コンソールでログを見たい場合は外してください(`logFile` 設定でファイルにも残せます)。
 
 ## 使い方
 
@@ -53,9 +61,20 @@ quakeguard.exe -dry-run -simulate
 : 保護の実地テスト(1回だけ保護→数秒後に解除)
 quakeguard.exe -simulate
 
-: 常駐開始
+: 常駐開始(タスクトレイにアイコンが出ます)
 quakeguard.exe -config config.json
+
+: トレイなしのコンソールモード
+quakeguard.exe -config config.json -no-tray
 ```
+
+常駐中はトレイアイコンの右クリックメニューから操作します:
+
+| メニュー | 動作 |
+|---|---|
+| テスト実行 | 実際に保護を10秒間発動(flush→dismount→ヘッド退避→自動復旧)。導入時の動作確認用 |
+| 今すぐ解除 | 保護中のみ有効。揺れが収まったら保持時間を待たずに復旧 |
+| 終了 | 保護を解除してから終了 |
 
 自動起動はタスクスケジューラに「最上位の特権で実行」で登録するのが手軽です:
 
@@ -77,6 +96,7 @@ schtasks /create /tn quakeguard /tr "C:\path\to\quakeguard.exe -config C:\path\t
 | `excludeSystemDisk` | `true` | システムディスクを対象外にする |
 | `allowTest` | `false` | 訓練・テスト報でも発動させる |
 | `dryRun` | `false` | ディスク操作をログ出力のみにする |
+| `logFile` | (なし) | 指定するとログをファイルにも追記(トレイ常駐でコンソールがないとき用) |
 
 ## 制約・注意
 
