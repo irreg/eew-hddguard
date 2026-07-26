@@ -1,0 +1,4 @@
+/quakeguard
+*.exe
+/config.json
+cover.out

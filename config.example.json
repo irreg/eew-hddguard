@@ -1,0 +1,10 @@
+{
+  "sourceUrl": "wss://api.p2pquake.net/v2/ws",
+  "watchPrefs": ["東京都", "神奈川県"],
+  "mode": "dismount",
+  "holdSeconds": 180,
+  "disks": [],
+  "excludeSystemDisk": true,
+  "allowTest": false,
+  "dryRun": false
+}
