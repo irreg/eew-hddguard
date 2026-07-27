@@ -39,13 +39,21 @@ P2P地震情報 (wss://api.p2pquake.net/v2/ws)
 
 ## ビルド
 
+[Go](https://go.dev/dl/)(1.22以降)が必要です。cgo不要の純Goなので、WindowsネイティブでもWSLからのクロスコンパイルでも同じバイナリができます。
+
+Windows上で(PowerShell / コマンドプロンプト):
+
+```powershell
+go build -ldflags "-H=windowsgui" -o eew-hddguard.exe .\cmd\eew-hddguard
+```
+
 WSL/Linuxからのクロスコンパイル:
 
 ```bash
 GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o eew-hddguard.exe ./cmd/eew-hddguard
 ```
 
-`-H=windowsgui` はトレイ常駐時にコンソール窓を出さないためのフラグです。コンソールでログを見たい場合は外してください(`logFile` 設定でファイルにも残せます)。
+`-H=windowsgui` はトレイ常駐時にコンソール窓を出さないためのフラグです。コンソール起動時は親コンソールに接続して出力するので、付けたままでもCLIの結果は見えます。コンソール専用で使う場合は外しても構いません(`logFile` 設定でファイルにもログを残せます)。
 
 ## 使い方
 
@@ -76,10 +84,18 @@ eew-hddguard.exe -config config.json -no-tray
 | 今すぐ解除 | 保護中のみ有効。揺れが収まったら保持時間を待たずに復旧 |
 | 終了 | 保護を解除してから終了 |
 
-自動起動はタスクスケジューラに「最上位の特権で実行」で登録するのが手軽です:
+### 自動起動(タスクスケジューラ)
+
+トレイアイコンとトースト通知は**ユーザーセッション**でしか表示できないため、トレイ運用では「ログオン時・自分のアカウント・最上位の特権」で登録します:
 
 ```bat
-schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\path\to\config.json" /sc onstart /ru SYSTEM /rl highest
+schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\path\to\config.json" /sc onlogon /rl highest
+```
+
+ログオンせず稼働させるサーバ用途では、`-no-tray` を付けてSYSTEMでの起動時実行にします(トレイ・通知なし。ログは `logFile` で確認):
+
+```bat
+schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\path\to\config.json -no-tray" /sc onstart /ru SYSTEM /rl highest
 ```
 
 ## 設定 (config.json)
@@ -98,16 +114,25 @@ schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\pa
 | `dryRun` | `false` | ディスク操作をログ出力のみにする |
 | `logFile` | (なし) | 指定するとログをファイルにも追記(トレイ常駐でコンソールがないとき用) |
 
-## トラブルシューティング
+運用のヒント:
 
-**`-list-disks` などで何も表示されない**
-古いビルド(このリポジトリの初期版)を `-H=windowsgui` 付きでビルドした場合、GUIサブシステムのexeはコンソール出力を持たないため、一覧もエラーメッセージも表示されませんでした。現在は起動時に親コンソールへ自動接続するので、PowerShell/cmdから実行すれば出力が見えます。再ビルドしてください。なお、PowerShellはGUIアプリの終了を待たないため、出力がプロンプトの後に表示されることがあります(そのままEnterで次のプロンプトに戻ります)。
+- **`watchPrefs` は絞るのを推奨。** 空のままだと全国どこかで震度5弱以上の警報が出るたびに発動し、そのたびに数分間ボリュームが外れます。ヘッド退避自体は無害ですが、遠方の地震で毎回外れるのは煩わしいはずです。
+- **受信経路まで含めた通し確認**をしたい場合は一時的に `allowTest: true` にすると、P2P地震情報の訓練・テスト報でも発動します。確認が済んだら `false` に戻してください。
+- `-simulate` やトレイの「テスト実行」は実際にボリュームをdismountします。対象ドライブのファイルを開いているアプリ(録画・ダウンロード等)は先に閉じてください。
+
+## 記憶域スペース(Storage Spaces)での動作
+
+そのまま使えます。プールのメンバーHDDは `PhysicalDriveN` として列挙され(ボリューム0台のHDDとして自動選択に入る)、HDDで構成された仮想ディスクは `SPACE` として列挙されてその上のボリュームがdismount対象になります。保護は「全ボリュームの静止 → 全ディスクのヘッド退避」の2段階で行うため、仮想ディスク側のI/Oを塞いだ後にメンバーHDDが退避され、揺れの間I/Oで起こされることもありません。仮想ディスク自体はATAコマンドを受けないためSTANDBYの対象外です。
+
+1点だけ注意: SSDで構成された `SPACE`(非回転扱い)は自動選択に入りません。**SSDとHDDが同一プールを共有している(階層化している)場合**は、SSD側のSpace経由のI/Oがプールのメタデータ更新でHDDに届き得るため、`disks` にそのSPACEのディスク番号も明示追加してボリュームごと静止させてください。プールが別々なら不要です。
+
+## トラブルシューティング
 
 **ディスク一覧が空/「access denied」になる**
 物理ディスクを開くには管理者権限が必要です。管理者として開いたPowerShellから実行してください。権限不足で1台も開けなかった場合はその旨のエラーを表示します。
 
-**記憶域スペース(Storage Spaces)を使っている**
-そのまま使えます。プールのメンバーHDDは `PhysicalDriveN` として列挙され(ボリューム0台のHDDとして自動選択に入る)、HDDで構成された仮想ディスクは `SPACE` として列挙されてその上のボリュームがdismount対象になります。保護は「全ボリュームの静止 → 全ディスクのヘッド退避」の2段階で行うため、仮想ディスク側のI/Oを塞いだ後にメンバーHDDが退避され、揺れの間I/Oで起こされることもありません。仮想ディスク自体はATAコマンドを受けないためSTANDBYの対象外です。
+**CLIの出力がプロンプトの後に表示される**
+PowerShellはGUIサブシステムのアプリ(`-H=windowsgui` でビルドしたexe)の終了を待たずにプロンプトを返すため、`-list-disks` などの出力が次のプロンプトの後に表示されることがあります。表示自体はされているので、そのままEnterで戻れます。
 
 ## 制約・注意
 
