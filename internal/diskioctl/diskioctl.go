@@ -9,7 +9,7 @@ import (
 	"fmt"
 )
 
-// Windows IOCTL / FSCTL codes used by hddguard.
+// Windows IOCTL / FSCTL codes used by eew-hddguard.
 const (
 	IOCTLATAPassThrough             = 0x0004D02C
 	IOCTLStorageQueryProperty       = 0x002D1400

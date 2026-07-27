@@ -1,4 +1,4 @@
-module hddguard
+module eew-hddguard
 
 go 1.26.5
 

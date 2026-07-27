@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"hddguard/internal/eew"
+	"eew-hddguard/internal/eew"
 )
 
 func writeConfig(t *testing.T, content string) string {

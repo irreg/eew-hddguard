@@ -1,4 +1,4 @@
-// Command hddguard receives 緊急地震速報 (EEW) warnings and parks the
+// Command eew-hddguard receives 緊急地震速報 (EEW) warnings and parks the
 // heads of local hard disks — optionally dismounting their volumes so I/O
 // cannot wake them — until the shaking has passed. On Windows it lives in
 // the system tray with manual test / early-release actions and toast
@@ -18,11 +18,11 @@ import (
 	"syscall"
 	"time"
 
-	"hddguard/internal/config"
-	"hddguard/internal/eew"
-	"hddguard/internal/protect"
-	"hddguard/internal/ui"
-	"hddguard/internal/windisk"
+	"eew-hddguard/internal/config"
+	"eew-hddguard/internal/eew"
+	"eew-hddguard/internal/protect"
+	"eew-hddguard/internal/ui"
+	"eew-hddguard/internal/windisk"
 )
 
 // Indirection points so tests can substitute fakes.
@@ -43,7 +43,7 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("hddguard", flag.ContinueOnError)
+	flags := flag.NewFlagSet("eew-hddguard", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	cfgPath := flags.String("config", "config.json", "path to config file")
 	listDisks := flags.Bool("list-disks", false, "list detected disks and exit")
@@ -123,21 +123,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	opts := ui.Options{Tray: !*noTray, Tooltip: "hddguard — 緊急地震速報でHDDヘッドを退避"}
+	opts := ui.Options{Tray: !*noTray, Tooltip: "eew-hddguard — 緊急地震速報でHDDヘッドを退避"}
 	return runUI(opts, ui.Logf(logf), func(u ui.UI) int {
 		guard.SetOnChange(func(active bool, reason string) {
 			u.SetProtected(active, reason)
 			if active {
-				u.Notify("hddguard: HDD保護を発動しました",
+				u.Notify("eew-hddguard: HDD保護を発動しました",
 					reason+" — ヘッドを退避しています。揺れが収まったらメニューの「今すぐ解除」で早期復旧できます。")
 			} else {
-				u.Notify("hddguard: HDD保護を解除しました", reason)
+				u.Notify("eew-hddguard: HDD保護を解除しました", reason)
 			}
 		})
 		defer guard.Close()
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		logf("hddguard: watching EEW (mode=%s, hold=%s, disks=%v, prefs=%v, dryRun=%v)",
+		logf("eew-hddguard: watching EEW (mode=%s, hold=%s, disks=%v, prefs=%v, dryRun=%v)",
 			mode, hold, nums, cfg.WatchPrefs, cfg.DryRun)
 		return monitor(ctx, cfg, guard, newSource(cfg, logf), u, logf)
 	})
@@ -176,10 +176,10 @@ func monitor(ctx context.Context, cfg *config.Config, guard *protect.Guard, src 
 				handleEvent(ev, cfg, guard, logf)
 			}
 			if err == nil || errors.Is(err, context.Canceled) {
-				logf("hddguard: shutting down")
+				logf("eew-hddguard: shutting down")
 				return 0
 			}
-			logf("hddguard: EEW source failed: %v", err)
+			logf("eew-hddguard: EEW source failed: %v", err)
 			return 1
 		}
 	}

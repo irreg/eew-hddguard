@@ -7,7 +7,7 @@ package windisk
 import (
 	"errors"
 
-	"hddguard/internal/protect"
+	"eew-hddguard/internal/protect"
 )
 
 // NewController returns a simulation controller when dryRun is set; real

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"hddguard/internal/config"
-	"hddguard/internal/eew"
-	"hddguard/internal/protect"
-	"hddguard/internal/ui"
+	"eew-hddguard/internal/config"
+	"eew-hddguard/internal/eew"
+	"eew-hddguard/internal/protect"
+	"eew-hddguard/internal/ui"
 )
 
 type testSession struct {
@@ -305,7 +305,7 @@ func TestRunUIManualTestAndEarlyRelease(t *testing.T) {
 func TestRunLogFile(t *testing.T) {
 	ctrl := &testController{disks: defaultDisks()}
 	withFakes(t, ctrl, &testSource{})
-	logPath := filepath.Join(t.TempDir(), "hddguard.log")
+	logPath := filepath.Join(t.TempDir(), "eew-hddguard.log")
 	var out, errBuf bytes.Buffer
 	path := writeConfig(t, `{"logFile": `+strconv.Quote(logPath)+`}`)
 	if code := run([]string{"-config", path}, &out, &errBuf); code != 0 {

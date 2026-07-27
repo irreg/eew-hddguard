@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"hddguard/internal/diskioctl"
-	"hddguard/internal/protect"
+	"eew-hddguard/internal/diskioctl"
+	"eew-hddguard/internal/protect"
 )
 
 const maxPhysicalDrives = 64

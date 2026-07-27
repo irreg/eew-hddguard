@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"hddguard/internal/protect"
+	"eew-hddguard/internal/protect"
 )
 
 func TestNewControllerRequiresDryRunOffWindows(t *testing.T) {

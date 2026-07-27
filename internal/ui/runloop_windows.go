@@ -38,7 +38,7 @@ func RunLoop(opts Options, logf Logf, body func(UI) int) int {
 		u.release = systray.AddMenuItem("今すぐ解除", "揺れが収まったら保護を早期解除します")
 		u.release.Disable()
 		systray.AddSeparator()
-		quit := systray.AddMenuItem("終了", "hddguardを終了します")
+		quit := systray.AddMenuItem("終了", "eew-hddguardを終了します")
 		go func() {
 			for {
 				select {
@@ -90,7 +90,7 @@ func (u *trayUI) SetProtected(active bool, detail string) {
 
 func (u *trayUI) Notify(title, message string) {
 	n := toast.Notification{
-		AppID:   "hddguard",
+		AppID:   "eew-hddguard",
 		Title:   title,
 		Message: message,
 	}

@@ -1,4 +1,4 @@
-// Package config loads the hddguard configuration file.
+// Package config loads the eew-hddguard configuration file.
 package config
 
 import (
@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"hddguard/internal/eew"
-	"hddguard/internal/protect"
+	"eew-hddguard/internal/eew"
+	"eew-hddguard/internal/protect"
 )
 
 // Config is the on-disk configuration (JSON).

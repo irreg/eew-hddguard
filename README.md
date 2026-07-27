@@ -1,4 +1,4 @@
-# hddguard
+# eew-hddguard
 
 緊急地震速報(EEW)を受信して、揺れが到達する前にWindowsマシンのHDDのヘッドを退避させる常駐ツールです。
 
@@ -42,7 +42,7 @@ P2P地震情報 (wss://api.p2pquake.net/v2/ws)
 WSL/Linuxからのクロスコンパイル:
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o hddguard.exe ./cmd/hddguard
+GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o eew-hddguard.exe ./cmd/eew-hddguard
 ```
 
 `-H=windowsgui` はトレイ常駐時にコンソール窓を出さないためのフラグです。コンソールでログを見たい場合は外してください(`logFile` 設定でファイルにも残せます)。
@@ -53,19 +53,19 @@ GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o hddguard.exe ./cm
 
 ```bat
 : ディスク一覧の確認
-hddguard.exe -list-disks
+eew-hddguard.exe -list-disks
 
 : 動作確認(実際にはディスクを触らない)
-hddguard.exe -dry-run -simulate
+eew-hddguard.exe -dry-run -simulate
 
 : 保護の実地テスト(1回だけ保護→数秒後に解除)
-hddguard.exe -simulate
+eew-hddguard.exe -simulate
 
 : 常駐開始(タスクトレイにアイコンが出ます)
-hddguard.exe -config config.json
+eew-hddguard.exe -config config.json
 
 : トレイなしのコンソールモード
-hddguard.exe -config config.json -no-tray
+eew-hddguard.exe -config config.json -no-tray
 ```
 
 常駐中はトレイアイコンの右クリックメニューから操作します:
@@ -79,7 +79,7 @@ hddguard.exe -config config.json -no-tray
 自動起動はタスクスケジューラに「最上位の特権で実行」で登録するのが手軽です:
 
 ```bat
-schtasks /create /tn hddguard /tr "C:\path\to\hddguard.exe -config C:\path\to\config.json" /sc onstart /ru SYSTEM /rl highest
+schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\path\to\config.json" /sc onstart /ru SYSTEM /rl highest
 ```
 
 ## 設定 (config.json)
