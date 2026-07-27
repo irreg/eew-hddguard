@@ -91,7 +91,7 @@ eew-hddguard.exe -config config.json -no-tray
 トレイアイコンとトースト通知は**ユーザーセッション**でしか表示できないため、トレイ運用では「ログオン時・自分のアカウント・最上位の特権」で登録します:
 
 ```powershell
-$dir = "C:\Tools\eew-hddguard"
+$dir = "C:\path\to\eew-hddguard"
 $action   = New-ScheduledTaskAction -Execute "$dir\eew-hddguard.exe" -Argument "-config config.json" -WorkingDirectory $dir
 $trigger  = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
@@ -105,7 +105,7 @@ Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigge
 ログオンせず稼働させるサーバ用途では、`-no-tray` を付けてSYSTEMでの起動時実行にします(トレイ・通知なし。ログは `logFile` で確認):
 
 ```powershell
-$dir = "C:\Tools\eew-hddguard"
+$dir = "C:\path\to\eew-hddguard"
 $action   = New-ScheduledTaskAction -Execute "$dir\eew-hddguard.exe" -Argument "-config config.json -no-tray" -WorkingDirectory $dir
 $trigger  = New-ScheduledTaskTrigger -AtStartup
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
@@ -133,7 +133,7 @@ Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigge
 - **`watchPrefs` は絞るのを推奨。** 空のままだと全国どこかで震度5弱以上の警報が出るたびに発動し、そのたびに数分間ボリュームが外れます。ヘッド退避自体は無害ですが、遠方の地震で毎回外れるのは煩わしいはずです。
 - **受信経路まで含めた通し確認**をしたい場合は一時的に `allowTest: true` にすると、P2P地震情報の訓練・テスト報でも発動します。確認が済んだら `false` に戻してください。
 - `-simulate` やトレイの「テスト実行」は実際にボリュームをdismountします。対象ドライブのファイルを開いているアプリ(録画・ダウンロード等)は先に閉じてください。
-- `logFile` の相対パス(example の `logging.log` など)は**カレントディレクトリ基準**です。タスクスケジューラ起動はカレントが `C:\Windows\System32` になりがちなので、タスクの「開始(オプション)」に実行ファイルのフォルダを指定するか、絶対パス(例 `C:\\Tools\\eew-hddguard\\logging.log`)を書いてください。
+- `logFile` の相対パス(example の `logging.log` など)は**カレントディレクトリ基準**です。タスクスケジューラ起動はカレントが `C:\Windows\System32` になりがちなので、タスクの「開始(オプション)」に実行ファイルのフォルダを指定するか、絶対パス(例 `C:\\path\\to\\eew-hddguard\\logging.log`)を書いてください。
 
 ## 記憶域スペース(Storage Spaces)での動作
 
