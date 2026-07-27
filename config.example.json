@@ -7,5 +7,5 @@
   "excludeSystemDisk": true,
   "allowTest": false,
   "dryRun": false,
-  "logFile": ""
+  "logFile": "logging.log"
 }

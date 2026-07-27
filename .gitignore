@@ -1,4 +1,5 @@
 /eew-hddguard
 *.exe
 /config.json
+*.log
 cover.out
