@@ -39,6 +39,7 @@ var (
 )
 
 func main() {
+	attachParentConsole()
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
@@ -197,6 +198,10 @@ func handleEvent(ev eew.Event, cfg *config.Config, guard *protect.Guard, logf pr
 }
 
 func printDisks(w io.Writer, disks []protect.DiskInfo) {
+	if len(disks) == 0 {
+		fmt.Fprintln(w, "物理ディスクを検出できませんでした。管理者権限で実行しているか確認してください。")
+		return
+	}
 	fmt.Fprintln(w, "NUM  TYPE  SYSTEM  MODEL                          VOLUMES")
 	for _, d := range disks {
 		typ := "SSD"

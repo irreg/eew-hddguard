@@ -147,6 +147,19 @@ func TestRunListDisks(t *testing.T) {
 	}
 }
 
+func TestRunListDisksEmpty(t *testing.T) {
+	ctrl := &testController{}
+	withFakes(t, ctrl, nil)
+	var out, errBuf bytes.Buffer
+	path := writeConfig(t, `{}`)
+	if code := run([]string{"-config", path, "-list-disks"}, &out, &errBuf); code != 0 {
+		t.Fatalf("code = %d, want 0; stderr:\n%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "管理者権限") {
+		t.Errorf("empty listing should hint at admin rights:\n%s", out.String())
+	}
+}
+
 func TestRunSelectionError(t *testing.T) {
 	ctrl := &testController{disks: defaultDisks()}
 	withFakes(t, ctrl, nil)

@@ -67,10 +67,14 @@ func (c *controller) ListDisks() ([]protect.DiskInfo, error) {
 	}
 
 	var disks []protect.DiskInfo
+	denied := 0
 	for n := 0; n < maxPhysicalDrives; n++ {
 		path := fmt.Sprintf(`\\.\PhysicalDrive%d`, n)
 		h, err := openPath(path, windows.GENERIC_READ)
 		if err != nil {
+			if err == windows.ERROR_ACCESS_DENIED {
+				denied++
+			}
 			continue
 		}
 		d := protect.DiskInfo{
@@ -82,6 +86,9 @@ func (c *controller) ListDisks() ([]protect.DiskInfo, error) {
 		}
 		windows.CloseHandle(h)
 		disks = append(disks, d)
+	}
+	if len(disks) == 0 && denied > 0 {
+		return nil, fmt.Errorf("access to all physical disks was denied (%d drives); run as administrator (管理者として実行してください)", denied)
 	}
 	return disks, nil
 }
