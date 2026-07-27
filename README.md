@@ -107,7 +107,7 @@ schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\pa
 物理ディスクを開くには管理者権限が必要です。管理者として開いたPowerShellから実行してください。権限不足で1台も開けなかった場合はその旨のエラーを表示します。
 
 **記憶域スペース(Storage Spaces)を使っている**
-プールのメンバーHDDは `PhysicalDriveN` として列挙され、ヘッド退避(standby相当)は可能です。ただしボリュームは仮想ディスク(Microsoft Storage Space Device)上にあるため、現状 `dismount` モードのI/O遮断はメンバーHDDには効きません(仮想ディスク→メンバーの対応付けは未対応)。
+そのまま使えます。プールのメンバーHDDは `PhysicalDriveN` として列挙され(ボリューム0台のHDDとして自動選択に入る)、HDDで構成された仮想ディスクは `SPACE` として列挙されてその上のボリュームがdismount対象になります。保護は「全ボリュームの静止 → 全ディスクのヘッド退避」の2段階で行うため、仮想ディスク側のI/Oを塞いだ後にメンバーHDDが退避され、揺れの間I/Oで起こされることもありません。仮想ディスク自体はATAコマンドを受けないためSTANDBYの対象外です。
 
 ## 制約・注意
 

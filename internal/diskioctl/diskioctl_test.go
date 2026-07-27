@@ -96,23 +96,34 @@ func TestParseDeviceDescriptor(t *testing.T) {
 	copy(buf[48:], "WD40EZRZ\x00")
 	binary.LittleEndian.PutUint32(buf[12:], 40) // VendorIdOffset
 	binary.LittleEndian.PutUint32(buf[16:], 48) // ProductIdOffset
-	vendor, product, err := ParseDeviceDescriptor(buf)
+	binary.LittleEndian.PutUint32(buf[28:], 11) // BusType: SATA
+	vendor, product, busType, err := ParseDeviceDescriptor(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if vendor != "WDC" || product != "WD40EZRZ" {
 		t.Errorf("got %q %q", vendor, product)
 	}
+	if busType != 11 || busType == BusTypeSpaces {
+		t.Errorf("busType = %d, want 11 (SATA)", busType)
+	}
 
-	if _, _, err := ParseDeviceDescriptor(buf[:10]); err == nil {
+	if _, _, _, err := ParseDeviceDescriptor(buf[:10]); err == nil {
 		t.Error("short buffer: expected error")
 	}
 
 	// Zero offsets mean "no string".
 	zero := make([]byte, 64)
-	vendor, product, err = ParseDeviceDescriptor(zero)
-	if err != nil || vendor != "" || product != "" {
-		t.Errorf("zero offsets: %q %q %v", vendor, product, err)
+	vendor, product, busType, err = ParseDeviceDescriptor(zero)
+	if err != nil || vendor != "" || product != "" || busType != 0 {
+		t.Errorf("zero offsets: %q %q %d %v", vendor, product, busType, err)
+	}
+
+	// A Storage Spaces virtual disk is identified by its bus type.
+	spaces := make([]byte, 64)
+	binary.LittleEndian.PutUint32(spaces[28:], BusTypeSpaces)
+	if _, _, busType, err = ParseDeviceDescriptor(spaces); err != nil || busType != BusTypeSpaces {
+		t.Errorf("busType = %d %v, want BusTypeSpaces", busType, err)
 	}
 
 	// Out-of-range offset is ignored, and an unterminated string is
@@ -121,7 +132,7 @@ func TestParseDeviceDescriptor(t *testing.T) {
 	binary.LittleEndian.PutUint32(bad[12:], 999)
 	binary.LittleEndian.PutUint32(bad[16:], 36)
 	copy(bad[36:], "ABCD") // runs to end of buffer, no NUL
-	vendor, product, err = ParseDeviceDescriptor(bad)
+	vendor, product, _, err = ParseDeviceDescriptor(bad)
 	if err != nil || vendor != "" || product != "ABCD" {
 		t.Errorf("got %q %q %v", vendor, product, err)
 	}

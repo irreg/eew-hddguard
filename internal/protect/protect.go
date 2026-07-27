@@ -46,7 +46,11 @@ type DiskInfo struct {
 	Model      string // vendor/product string, best effort
 	Rotational bool   // true for spinning HDDs
 	System     bool   // holds the Windows system volume
-	Volumes    []string
+	// Virtual marks a Storage Spaces virtual disk: its volumes can be
+	// dismounted, but it accepts no ATA commands (the pool's member disks
+	// are parked individually instead).
+	Virtual bool
+	Volumes []string
 }
 
 // Logf is the logging callback used across the package.

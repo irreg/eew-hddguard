@@ -77,11 +77,13 @@ func (c *controller) ListDisks() ([]protect.DiskInfo, error) {
 			}
 			continue
 		}
+		model, virtual := queryModel(h)
 		d := protect.DiskInfo{
 			Number:     n,
 			Rotational: queryRotational(h),
-			Model:      queryModel(h),
+			Model:      model,
 			System:     sysDisks[uint32(n)],
+			Virtual:    virtual,
 			Volumes:    volsByDisk[uint32(n)],
 		}
 		windows.CloseHandle(h)
@@ -108,17 +110,18 @@ func queryRotational(h windows.Handle) bool {
 	return rot
 }
 
-func queryModel(h windows.Handle) string {
+func queryModel(h windows.Handle) (model string, virtual bool) {
 	in := diskioctl.BuildStoragePropertyQuery(diskioctl.StorageDeviceProperty)
 	out := make([]byte, 1024)
 	if err := ioctl(h, diskioctl.IOCTLStorageQueryProperty, in, out); err != nil {
-		return ""
+		return "", false
 	}
-	vendor, product, err := diskioctl.ParseDeviceDescriptor(out)
+	vendor, product, busType, err := diskioctl.ParseDeviceDescriptor(out)
 	if err != nil {
-		return ""
+		return "", false
 	}
-	return strings.TrimSpace(strings.TrimSpace(vendor) + " " + product)
+	return strings.TrimSpace(strings.TrimSpace(vendor) + " " + product),
+		busType == diskioctl.BusTypeSpaces
 }
 
 // systemDiskNumbers returns the physical disk numbers backing the Windows
@@ -190,9 +193,13 @@ type session struct {
 	vols []heldVolume
 }
 
-// Protect flushes each target disk's volumes, optionally locks and
-// dismounts them, then issues ATA STANDBY IMMEDIATE to park the heads.
-// It protects as many disks as it can, logging per-disk failures.
+// Protect works in two phases: first it quiesces the volumes of every
+// target disk (flush, and in dismount mode lock+dismount), then it issues
+// ATA STANDBY IMMEDIATE to every target. Quiescing everything first
+// matters with Storage Spaces: the volumes live on the virtual disk, and
+// dismounting them before parking the pool's member disks ensures no
+// late volume I/O wakes heads that were already parked. It protects as
+// much as it can, logging per-disk failures.
 func (c *controller) Protect(disks []protect.DiskInfo, mode protect.Mode) (protect.Session, error) {
 	sess := &session{c: c}
 	for _, d := range disks {
@@ -202,6 +209,12 @@ func (c *controller) Protect(disks []protect.DiskInfo, mode protect.Mode) (prote
 			} else {
 				c.flushVolume(vol)
 			}
+		}
+	}
+	for _, d := range disks {
+		if d.Virtual {
+			c.logf("windisk: PhysicalDrive%d is a Storage Spaces virtual disk; volumes quiesced, no ATA standby", d.Number)
+			continue
 		}
 		if c.dryRun {
 			c.logf("windisk: [dry-run] would send STANDBY IMMEDIATE to PhysicalDrive%d", d.Number)

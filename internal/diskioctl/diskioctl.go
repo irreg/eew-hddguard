@@ -84,15 +84,19 @@ func ParseDiskExtents(buf []byte) ([]uint32, error) {
 	return disks, nil
 }
 
-// ParseDeviceDescriptor extracts the vendor and product strings from a
-// STORAGE_DEVICE_DESCRIPTOR buffer.
-func ParseDeviceDescriptor(buf []byte) (vendor, product string, err error) {
+// BusTypeSpaces is the STORAGE_BUS_TYPE of a Storage Spaces virtual disk.
+const BusTypeSpaces = 17
+
+// ParseDeviceDescriptor extracts the vendor and product strings and the bus
+// type from a STORAGE_DEVICE_DESCRIPTOR buffer.
+func ParseDeviceDescriptor(buf []byte) (vendor, product string, busType uint32, err error) {
 	if len(buf) < 36 {
-		return "", "", fmt.Errorf("device descriptor too short: %d bytes", len(buf))
+		return "", "", 0, fmt.Errorf("device descriptor too short: %d bytes", len(buf))
 	}
 	vendor = cstringAt(buf, binary.LittleEndian.Uint32(buf[12:]))  // VendorIdOffset
 	product = cstringAt(buf, binary.LittleEndian.Uint32(buf[16:])) // ProductIdOffset
-	return vendor, product, nil
+	busType = binary.LittleEndian.Uint32(buf[28:])
+	return vendor, product, busType, nil
 }
 
 // cstringAt reads a NUL-terminated ASCII string at off, trimming spaces.

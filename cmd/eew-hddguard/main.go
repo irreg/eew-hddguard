@@ -208,6 +208,9 @@ func printDisks(w io.Writer, disks []protect.DiskInfo) {
 		if d.Rotational {
 			typ = "HDD"
 		}
+		if d.Virtual {
+			typ = "SPACE"
+		}
 		sys := "-"
 		if d.System {
 			sys = "yes"

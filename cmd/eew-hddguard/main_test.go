@@ -67,6 +67,8 @@ func defaultDisks() []protect.DiskInfo {
 	return []protect.DiskInfo{
 		{Number: 0, Model: "SysSSD", Rotational: false, System: true},
 		{Number: 1, Model: "DataHDD", Rotational: true, Volumes: []string{`\\?\Volume{x}`}},
+		{Number: 2, Model: "Msft Storage Space", Rotational: true, Virtual: true,
+			Volumes: []string{`\\?\Volume{space}`}},
 	}
 }
 
@@ -140,7 +142,7 @@ func TestRunListDisks(t *testing.T) {
 		t.Fatalf("code = %d, want 0; stderr:\n%s", code, errBuf.String())
 	}
 	s := out.String()
-	for _, want := range []string{"DataHDD", "SysSSD", "HDD", "SSD", "yes"} {
+	for _, want := range []string{"DataHDD", "SysSSD", "HDD", "SSD", "yes", "SPACE"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("output missing %q:\n%s", want, s)
 		}
