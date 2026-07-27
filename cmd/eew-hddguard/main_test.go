@@ -335,6 +335,30 @@ func TestRunLogFile(t *testing.T) {
 	}
 }
 
+// deadWriter simulates the invalid stderr handle of a windowsgui process
+// launched without a console (e.g. by the task scheduler).
+type deadWriter struct{}
+
+func (deadWriter) Write(p []byte) (int, error) { return 0, errors.New("invalid handle") }
+
+func TestRunLogFileSurvivesDeadStderr(t *testing.T) {
+	ctrl := &testController{disks: defaultDisks()}
+	withFakes(t, ctrl, &testSource{})
+	logPath := filepath.Join(t.TempDir(), "eew-hddguard.log")
+	var out bytes.Buffer
+	path := writeConfig(t, `{"logFile": `+strconv.Quote(logPath)+`}`)
+	if code := run([]string{"-config", path}, &out, deadWriter{}); code != 0 {
+		t.Fatalf("code = %d, want 0", code)
+	}
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "shutting down") {
+		t.Errorf("log file must receive logs even when stderr is dead:\n%s", data)
+	}
+}
+
 func TestRunLogFileOpenError(t *testing.T) {
 	ctrl := &testController{disks: defaultDisks()}
 	withFakes(t, ctrl, nil)

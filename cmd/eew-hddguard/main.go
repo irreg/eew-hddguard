@@ -75,7 +75,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		defer f.Close()
-		logger.SetOutput(io.MultiWriter(stderr, f))
+		// The file goes first and stderr is wrapped to swallow errors:
+		// launched without a console (task scheduler, Explorer) stderr is
+		// an invalid handle whose write failure would otherwise make
+		// io.MultiWriter stop before reaching the file.
+		logger.SetOutput(io.MultiWriter(f, bestEffortWriter{stderr}))
 	}
 	mode, _ := protect.ParseMode(cfg.Mode)
 
@@ -195,6 +199,15 @@ func handleEvent(ev eew.Event, cfg *config.Config, guard *protect.Guard, logf pr
 	logf("eew: WARNING %s#%s hypocenter=%s M%.1f areas=%v",
 		ev.EventID, ev.Serial, ev.Hypocenter, ev.Magnitude, ev.Prefs)
 	guard.Trigger(reason)
+}
+
+// bestEffortWriter forwards writes but never reports failure, so one dead
+// destination cannot abort an io.MultiWriter chain.
+type bestEffortWriter struct{ w io.Writer }
+
+func (b bestEffortWriter) Write(p []byte) (int, error) {
+	b.w.Write(p)
+	return len(p), nil
 }
 
 func printDisks(w io.Writer, disks []protect.DiskInfo) {
