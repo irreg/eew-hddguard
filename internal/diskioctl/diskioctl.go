@@ -84,8 +84,9 @@ func ParseDiskExtents(buf []byte) ([]uint32, error) {
 	return disks, nil
 }
 
-// BusTypeSpaces is the STORAGE_BUS_TYPE of a Storage Spaces virtual disk.
-const BusTypeSpaces = 17
+// BusTypeSpaces is the STORAGE_BUS_TYPE of a Storage Spaces virtual disk
+// (16 in ntddstor.h; 17 is BusTypeNvme — do not confuse the two).
+const BusTypeSpaces = 16
 
 // ParseDeviceDescriptor extracts the vendor and product strings and the bus
 // type from a STORAGE_DEVICE_DESCRIPTOR buffer.

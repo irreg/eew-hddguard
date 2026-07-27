@@ -108,6 +108,17 @@ func TestParseDeviceDescriptor(t *testing.T) {
 		t.Errorf("busType = %d, want 11 (SATA)", busType)
 	}
 
+	// An NVMe disk (17) must NOT be mistaken for a Storage Space (16) —
+	// regression test for exactly that mix-up.
+	nvme := make([]byte, 64)
+	binary.LittleEndian.PutUint32(nvme[28:], 17)
+	if _, _, busType, err = ParseDeviceDescriptor(nvme); err != nil || busType == BusTypeSpaces {
+		t.Errorf("NVMe busType %d misdetected as Storage Space", busType)
+	}
+	if BusTypeSpaces != 16 {
+		t.Errorf("BusTypeSpaces = %d, want 16 (ntddstor.h)", BusTypeSpaces)
+	}
+
 	if _, _, _, err := ParseDeviceDescriptor(buf[:10]); err == nil {
 		t.Error("short buffer: expected error")
 	}
