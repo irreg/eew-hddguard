@@ -114,3 +114,7 @@ GOOS=windows GOARCH=amd64 go build ./...
 ```
 
 Windows専用のsyscall層(`internal/windisk`)は薄く保ち、IOCTLバッファの組み立て・解析(`internal/diskioctl`)や発動判定・保持ロジック(`internal/protect`, `internal/eew`)はOS非依存の純粋関数としてテストしています。非Windows環境では `-dry-run` でシミュレーションコントローラが動きます。
+
+## ライセンス
+
+[Apache License 2.0](LICENSE)
