@@ -1,4 +1,4 @@
-module quakeguard
+module hddguard
 
 go 1.26.5
 

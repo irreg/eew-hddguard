@@ -1,4 +1,4 @@
-// Package config loads the quakeguard configuration file.
+// Package config loads the hddguard configuration file.
 package config
 
 import (
@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"quakeguard/internal/eew"
-	"quakeguard/internal/protect"
+	"hddguard/internal/eew"
+	"hddguard/internal/protect"
 )
 
 // Config is the on-disk configuration (JSON).

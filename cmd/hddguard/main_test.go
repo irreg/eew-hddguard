@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"quakeguard/internal/config"
-	"quakeguard/internal/eew"
-	"quakeguard/internal/protect"
-	"quakeguard/internal/ui"
+	"hddguard/internal/config"
+	"hddguard/internal/eew"
+	"hddguard/internal/protect"
+	"hddguard/internal/ui"
 )
 
 type testSession struct {
@@ -305,7 +305,7 @@ func TestRunUIManualTestAndEarlyRelease(t *testing.T) {
 func TestRunLogFile(t *testing.T) {
 	ctrl := &testController{disks: defaultDisks()}
 	withFakes(t, ctrl, &testSource{})
-	logPath := filepath.Join(t.TempDir(), "quakeguard.log")
+	logPath := filepath.Join(t.TempDir(), "hddguard.log")
 	var out, errBuf bytes.Buffer
 	path := writeConfig(t, `{"logFile": `+strconv.Quote(logPath)+`}`)
 	if code := run([]string{"-config", path}, &out, &errBuf); code != 0 {

@@ -7,7 +7,7 @@ package windisk
 import (
 	"errors"
 
-	"quakeguard/internal/protect"
+	"hddguard/internal/protect"
 )
 
 // NewController returns a simulation controller when dryRun is set; real

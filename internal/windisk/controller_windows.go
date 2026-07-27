@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"quakeguard/internal/diskioctl"
-	"quakeguard/internal/protect"
+	"hddguard/internal/diskioctl"
+	"hddguard/internal/protect"
 )
 
 const maxPhysicalDrives = 64

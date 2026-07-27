@@ -1,4 +1,4 @@
-// Package ui provides the user-facing surface of quakeguard: a system tray
+// Package ui provides the user-facing surface of hddguard: a system tray
 // icon with manual test / early-release actions and toast notifications on
 // Windows, and a headless logger elsewhere (or with the tray disabled).
 package ui

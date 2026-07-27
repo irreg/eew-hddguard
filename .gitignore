@@ -1,4 +1,4 @@
-/quakeguard
+/hddguard
 *.exe
 /config.json
 cover.out

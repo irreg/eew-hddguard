@@ -1,6 +1,6 @@
 package windisk
 
-import "quakeguard/internal/protect"
+import "hddguard/internal/protect"
 
 // simController is a dry-run stand-in used on non-Windows platforms so the
 // full trigger/hold/release flow can be exercised end to end.
