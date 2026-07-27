@@ -6,5 +6,6 @@
   "disks": [],
   "excludeSystemDisk": true,
   "allowTest": false,
-  "dryRun": false
+  "dryRun": false,
+  "logFile": ""
 }
