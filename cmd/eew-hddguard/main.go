@@ -80,6 +80,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// an invalid handle whose write failure would otherwise make
 		// io.MultiWriter stop before reaching the file.
 		logger.SetOutput(io.MultiWriter(f, bestEffortWriter{stderr}))
+		// Always leave a trace that this process instance started, so an
+		// empty log file reliably means the binary never ran (e.g. an old
+		// task definition), not that logging is broken.
+		logf("eew-hddguard: starting (pid=%d, config=%s)", os.Getpid(), *cfgPath)
 	}
 	mode, _ := protect.ParseMode(cfg.Mode)
 

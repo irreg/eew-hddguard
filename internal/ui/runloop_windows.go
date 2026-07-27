@@ -28,7 +28,9 @@ func RunLoop(opts Options, logf Logf, body func(UI) int) int {
 	}
 	u := &trayUI{actions: make(chan Action, 8), logf: logf}
 	code := 0
+	logf("ui: starting system tray")
 	systray.Run(func() {
+		logf("ui: tray ready")
 		systray.SetIcon(iconIdle)
 		systray.SetTooltip(opts.Tooltip)
 		u.status = systray.AddMenuItem("待機中", "現在の保護状態")
