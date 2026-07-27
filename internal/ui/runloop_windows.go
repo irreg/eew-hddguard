@@ -4,6 +4,7 @@ package ui
 
 import (
 	_ "embed"
+	"time"
 
 	"fyne.io/systray"
 	"github.com/go-toast/toast"
@@ -15,10 +16,16 @@ var iconIdle []byte
 //go:embed assets/alert.ico
 var iconAlert []byte
 
-// RunLoop runs body with the platform UI. With opts.Tray it spins the
-// system tray event loop on the calling goroutine and runs body alongside
-// it; the tray disappears when body returns. Without it, body gets a
-// headless UI.
+// trayReadyTimeout bounds how long RunLoop waits for the tray to come up.
+// In a non-interactive session (e.g. a scheduled task not marked "run only
+// when user is logged on") there is no notification area and the tray loop
+// never becomes ready; protection must not be held hostage by the UI.
+const trayReadyTimeout = 10 * time.Second
+
+// RunLoop runs body with the platform UI. With opts.Tray it starts the
+// system tray event loop and runs body once the tray is ready; if the tray
+// cannot initialize in time, body runs with a headless UI instead. The
+// tray disappears when body returns.
 func RunLoop(opts Options, logf Logf, body func(UI) int) int {
 	if !opts.Tray {
 		return body(NewHeadless(logf))
@@ -27,9 +34,9 @@ func RunLoop(opts Options, logf Logf, body func(UI) int) int {
 		logf = func(string, ...any) {}
 	}
 	u := &trayUI{actions: make(chan Action, 8), logf: logf}
-	code := 0
+	ready := make(chan struct{})
 	logf("ui: starting system tray")
-	systray.Run(func() {
+	go systray.Run(func() {
 		logf("ui: tray ready")
 		systray.SetIcon(iconIdle)
 		systray.SetTooltip(opts.Tooltip)
@@ -53,12 +60,16 @@ func RunLoop(opts Options, logf Logf, body func(UI) int) int {
 				}
 			}
 		}()
-		go func() {
-			code = body(u)
-			systray.Quit()
-		}()
+		close(ready)
 	}, nil)
-	return code
+	select {
+	case <-ready:
+		defer systray.Quit()
+		return body(u)
+	case <-time.After(trayReadyTimeout):
+		logf("ui: system tray not ready after %s — likely a non-interactive session; continuing without tray (register the task with LogonType Interactive to get the tray)", trayReadyTimeout)
+		return body(NewHeadless(logf))
+	}
 }
 
 type trayUI struct {

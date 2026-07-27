@@ -92,12 +92,14 @@ eew-hddguard.exe -config config.json -no-tray
 
 ```powershell
 $dir = "C:\path\to\eew-hddguard"
-$action   = New-ScheduledTaskAction -Execute "$dir\eew-hddguard.exe" -Argument "-config config.json" -WorkingDirectory $dir
-$trigger  = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest
+$action    = New-ScheduledTaskAction -Execute "$dir\eew-hddguard.exe" -Argument "-config config.json" -WorkingDirectory $dir
+$trigger   = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigger -Settings $settings -Principal $principal
 ```
 
+- `-LogonType Interactive`(GUIでは「ユーザーがログオンしているときのみ実行する」)が重要です。これ以外だとタスクは通知領域のない非対話セッションで実行され、トレイアイコンもトースト通知も表示できません(その場合アプリはトレイなしで保護動作を継続します)。
 - `-ExecutionTimeLimit ([TimeSpan]::Zero)` が「停止するまでの時間」の無効化です。GUIで登録した場合は「設定」タブの「タスクを停止するまでの時間」のチェックを外してください。
 - `-WorkingDirectory` を指定しておくと、`logFile` の相対パス(`logging.log`)が実行フォルダに作られます。
 - バッテリー駆動でも保護が動くよう、電源条件も外しています。
