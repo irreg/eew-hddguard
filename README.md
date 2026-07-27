@@ -86,16 +86,30 @@ eew-hddguard.exe -config config.json -no-tray
 
 ### 自動起動(タスクスケジューラ)
 
+登録はPowerShell(管理者)で行います。`schtasks` ではなくPowerShellを使うのは、タスクスケジューラの既定にある**「タスクを停止するまでの時間: 3日」を無効化**しないと常駐タスクが3日で強制終了されるためです(`schtasks` にはこの設定を変えるフラグがありません)。
+
 トレイアイコンとトースト通知は**ユーザーセッション**でしか表示できないため、トレイ運用では「ログオン時・自分のアカウント・最上位の特権」で登録します:
 
-```bat
-schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\path\to\config.json" /sc onlogon /rl highest
+```powershell
+$dir = "C:\Tools\eew-hddguard"
+$action   = New-ScheduledTaskAction -Execute "$dir\eew-hddguard.exe" -Argument "-config config.json" -WorkingDirectory $dir
+$trigger  = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest
 ```
+
+- `-ExecutionTimeLimit ([TimeSpan]::Zero)` が「停止するまでの時間」の無効化です。GUIで登録した場合は「設定」タブの「タスクを停止するまでの時間」のチェックを外してください。
+- `-WorkingDirectory` を指定しておくと、`logFile` の相対パス(`logging.log`)が実行フォルダに作られます。
+- バッテリー駆動でも保護が動くよう、電源条件も外しています。
 
 ログオンせず稼働させるサーバ用途では、`-no-tray` を付けてSYSTEMでの起動時実行にします(トレイ・通知なし。ログは `logFile` で確認):
 
-```bat
-schtasks /create /tn eew-hddguard /tr "C:\path\to\eew-hddguard.exe -config C:\path\to\config.json -no-tray" /sc onstart /ru SYSTEM /rl highest
+```powershell
+$dir = "C:\Tools\eew-hddguard"
+$action   = New-ScheduledTaskAction -Execute "$dir\eew-hddguard.exe" -Argument "-config config.json -no-tray" -WorkingDirectory $dir
+$trigger  = New-ScheduledTaskTrigger -AtStartup
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigger -Settings $settings -User "SYSTEM" -RunLevel Highest
 ```
 
 ## 設定 (config.json)
