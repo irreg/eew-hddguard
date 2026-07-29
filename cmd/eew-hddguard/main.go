@@ -25,6 +25,10 @@ import (
 	"eew-hddguard/internal/windisk"
 )
 
+// version is stamped by the release build via
+// -ldflags "-X main.version=v1.2.3".
+var version = "dev"
+
 // Indirection points so tests can substitute fakes.
 var (
 	newController = windisk.NewController
@@ -51,8 +55,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	simulate := flags.Bool("simulate", false, "run one protect/release cycle and exit")
 	dryRun := flags.Bool("dry-run", false, "log disk actions instead of performing them")
 	noTray := flags.Bool("no-tray", false, "run headless without the system tray")
+	showVersion := flags.Bool("version", false, "print version and exit")
 	if err := flags.Parse(args); err != nil {
 		return 2
+	}
+	if *showVersion {
+		fmt.Fprintln(stdout, "eew-hddguard "+version)
+		return 0
 	}
 	logger := log.New(stderr, "", log.LstdFlags)
 	logf := logger.Printf
@@ -83,7 +92,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// Always leave a trace that this process instance started, so an
 		// empty log file reliably means the binary never ran (e.g. an old
 		// task definition), not that logging is broken.
-		logf("eew-hddguard: starting (pid=%d, config=%s)", os.Getpid(), *cfgPath)
+		logf("eew-hddguard: starting (version=%s, pid=%d, config=%s)", version, os.Getpid(), *cfgPath)
 	}
 	mode, _ := protect.ParseMode(cfg.Mode)
 

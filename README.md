@@ -168,6 +168,19 @@ GOOS=windows GOARCH=amd64 go build ./...
 
 Windows専用のsyscall層(`internal/windisk`)は薄く保ち、IOCTLバッファの組み立て・解析(`internal/diskioctl`)や発動判定・保持ロジック(`internal/protect`, `internal/eew`)はOS非依存の純粋関数としてテストしています。非Windows環境では `-dry-run` でシミュレーションコントローラが動きます。
 
+### CI / リリース
+
+GitHub Actionsで、push/PRごとにvet・テスト(カバレッジ90%未満は失敗)・Windowsビルドを実行します([ci.yml](.github/workflows/ci.yml))。
+
+リリースは `v` で始まるタグをpushすると自動で行われ、テスト後にexeをビルドしてzip(exe + config.example.json + README + LICENSE)をGitHub Releasesに添付します([release.yml](.github/workflows/release.yml)):
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+リリースビルドにはタグ名がバージョンとして埋め込まれ、`eew-hddguard.exe -version` と起動時のログで確認できます。
+
 ## ライセンス
 
 [Apache License 2.0](LICENSE)

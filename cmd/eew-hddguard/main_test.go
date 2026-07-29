@@ -95,6 +95,16 @@ func writeConfig(t *testing.T, content string) string {
 	return path
 }
 
+func TestRunVersion(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if code := run([]string{"-version"}, &out, &errBuf); code != 0 {
+		t.Fatalf("code = %d, want 0", code)
+	}
+	if !strings.Contains(out.String(), "eew-hddguard dev") {
+		t.Errorf("output: %q", out.String())
+	}
+}
+
 func TestRunBadFlag(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	if code := run([]string{"-no-such-flag"}, &out, &errBuf); code != 2 {

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet (linux)
+        run: go vet ./...
+
+      - name: Vet (windows)
+        run: go vet ./...
+        env:
+          GOOS: windows
+          GOARCH: amd64
+
+      - name: Test with coverage gate (>= 90%)
+        run: |
+          go test -coverprofile=cover.out -coverpkg=./... ./...
+          total=$(go tool cover -func=cover.out | tail -1 | awk '{print substr($3, 1, length($3)-1)}')
+          echo "total coverage: ${total}%"
+          awk -v t="$total" 'BEGIN { exit (t < 90) }'
+
+      - name: Build windows binary
+        run: go build -trimpath -ldflags "-H=windowsgui" -o eew-hddguard.exe ./cmd/eew-hddguard
+        env:
+          GOOS: windows
+          GOARCH: amd64
