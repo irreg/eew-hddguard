@@ -1,7 +1,10 @@
 // Package eew provides Earthquake Early Warning (緊急地震速報) reception.
 package eew
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // Event is a normalized EEW warning event, independent of the feed that
 // produced it.
@@ -36,10 +39,25 @@ func ShouldTrigger(ev Event, watchPrefs []string, allowTest bool) (bool, string)
 	}
 	for _, w := range watchPrefs {
 		for _, p := range ev.Prefs {
-			if p == w {
+			if normalizePref(p) == normalizePref(w) {
 				return true, "warning area includes " + w
 			}
 		}
 	}
 	return false, "no watched prefecture in warning areas"
+}
+
+// normalizePref strips a trailing 都/道/府/県 so that user-written names
+// like 東京都 match the P2P地震情報 feed, which sends 東京. The suffix is
+// only stripped when at least two runes remain, so 京都 stays 京都 while
+// 京都府 and 東京都 normalize to 京都 and 東京.
+func normalizePref(s string) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) >= 3 {
+		switch r[len(r)-1] {
+		case '都', '道', '府', '県':
+			r = r[:len(r)-1]
+		}
+	}
+	return string(r)
 }

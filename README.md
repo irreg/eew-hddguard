@@ -121,7 +121,7 @@ Register-ScheduledTask -TaskName "eew-hddguard" -Action $action -Trigger $trigge
 | キー | 既定値 | 説明 |
 |---|---|---|
 | `sourceUrl` | P2P地震情報 v2 | EEW受信WebSocketエンドポイント |
-| `watchPrefs` | `[]`(全国) | この都道府県が警報対象地域に含まれるときだけ発動(例 `["東京都"]`) |
+| `watchPrefs` | `[]`(全国) | この都道府県が警報対象地域に含まれるときだけ発動(例 `["東京都"]`)。「東京都」「東京」どちらの表記でも可(都/道/府/県の有無は無視して比較) |
 | `mode` | `dismount` | `standby` / `dismount` |
 | `holdSeconds` | `180` | 最後のトリガーから保護を維持する秒数 |
 | `disks` | `[]`(自動) | 対象の物理ディスク番号を明示指定。自動時は非システムHDD全部 |
